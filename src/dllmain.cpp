@@ -21,15 +21,14 @@
 #include <SDK/Classes/PalUtility.h>
 #include <SDK/Classes/PalOptionSubsystem.h>
 
+#include <ModConfig.h>
+
 using namespace RC;
 using namespace RC::Unreal;
 using namespace Palworld;
 
 std::vector<SignatureContainer> SigContainer;
 SinglePassScanner::SignatureContainerMap SigContainerMap;
-
-typedef bool(__cdecl* TYPE_Test1)(UObject*, AActor*, UObject*);
-static inline TYPE_Test1 Test1;
 
 UClass* CLASS_MapObject = nullptr;
 
@@ -60,30 +59,7 @@ void BeginScan()
         };
     }();
 
-    SignatureContainer GetWorkSuitabilityDamageRate_Signature = [=]() -> SignatureContainer {
-        return {
-            {{ "48 89 5C 24 08 48 89 6C 24 10 56 57 41 56 48 83 EC 30 49 8B 78 40 44 0F B6 F2 0F B6 E9 48 85 FF 0F 84"}},
-            [=](SignatureContainer& self) {
-                void* FunctionPointer = static_cast<void*>(self.get_match_address());
-
-                UPalMapObjectUtility::GetWorkSuitabilityDamageRate_Internal =
-                    reinterpret_cast<UPalMapObjectUtility::TYPE_GetWorkSuitabilityDamageRate>(FunctionPointer);
-
-                self.get_did_succeed() = true;
-
-                return true;
-            },
-            [](const SignatureContainer& self) {
-                if (!self.get_did_succeed())
-                {
-                    Output::send<LogLevel::Error>(STR("Failed to find signature for UPalMapObjectDamageReactionComponent::GetWorkSuitabilityDamageRate\n"));
-                }
-            }
-        };
-    }();
-
     SigContainer.emplace_back(MapObjectDamageReactionComponent_CanProcessDamage_Signature);
-    SigContainer.emplace_back(GetWorkSuitabilityDamageRate_Signature);
     SigContainerMap.emplace(ScanTarget::MainExe, SigContainer);
     SinglePassScanner::start_scan(SigContainerMap);
 }
@@ -103,18 +79,6 @@ bool __stdcall MapObjectDamageReactionComponent_CanProcessDamage(UPalMapObjectDa
     }
 
     return EnablePvPDamageToBuildings;
-}
-
-SafetyHookInline WorkSuitability_Modifier_Hook{};
-float GetWorkSuitabilityDamageRate(uint8_t MaterialType, uint8_t MaterialSubType, uint8_t* DamageInfo)
-{
-    // Temporary bandaid to prevent the damage multiplier from going down to 0.05 when riding on a Pal.
-    auto Value = WorkSuitability_Modifier_Hook.call<float>(MaterialType, MaterialSubType, DamageInfo);
-    if (Value <= 1.0f)
-    {
-        Value = 1.0f;
-    }
-    return Value;
 }
 
 class YetAnotherPvPFix : public RC::CppUserModBase
@@ -143,6 +107,9 @@ public:
         Output::send<LogLevel::Verbose>(STR("[{}] loaded successfully!\n"), ModName);
 
         CLASS_MapObject = UObjectGlobals::StaticFindObject<UClass*>(nullptr, nullptr, TEXT("/Script/Pal.PalMapObject"));
+
+        auto& Settings = PVP::Config::Settings::get();
+        Settings.deserialize();
 
         static bool HasInitialized = false;
         Hook::RegisterBeginPlayPostCallback([&](AActor* Actor) {
@@ -178,44 +145,33 @@ public:
                 return;
             }
 
-            auto bEnablePlayerToPlayerDamage_Property = OptionWorldSettingsStruct->GetPropertyByName(STR("bEnablePlayerToPlayerDamage"));
-            if (!bEnablePlayerToPlayerDamage_Property)
+            if (Settings.PVP.EnablePlayerToPlayerDamage)
             {
-                Output::send<LogLevel::Error>(STR("[{}] failed to load, property 'bEnablePlayerToPlayerDamage' doesn't exist in OptionWorldSettings anymore.\n"), ModName);
-            }
-
-            auto bEnablePlayerToPlayerDamage = CastField<FBoolProperty>(bEnablePlayerToPlayerDamage_Property);
-            if (!bEnablePlayerToPlayerDamage)
-            {
-                Output::send<LogLevel::Error>(STR("[{}] failed to load, property 'bEnablePlayerToPlayerDamage' is not a bool anymore.\n"), ModName);
-            }
-
-            auto bIsPvP_Property = OptionWorldSettingsStruct->GetPropertyByName(STR("bIsPvP"));
-            if (!bIsPvP_Property)
-            {
-                Output::send<LogLevel::Error>(STR("[{}] failed to load, property 'bIsPvP' doesn't exist in OptionWorldSettings anymore.\n"), ModName);
-            }
-
-            auto bIsPvP = CastField<FBoolProperty>(bIsPvP_Property);
-            if (!bIsPvP)
-            {
-                Output::send<LogLevel::Error>(STR("[{}] failed to load, property 'bIsPvP' is not a bool anymore.\n"), ModName);
-            }
-
-            auto bIsPvP_Value = bIsPvP->GetPropertyValueInContainer(OptionWorldSettings);
-
-            if (bIsPvP_Value)
-            {
-                Output::send<LogLevel::Verbose>(STR("[YetAnotherPvPFix] Enabling PvP Damage to Buildings and Players.\n"));
                 EnablePvPDamageToBuildings = true;
+
+                auto bEnablePlayerToPlayerDamage_Property = OptionWorldSettingsStruct->GetPropertyByName(STR("bEnablePlayerToPlayerDamage"));
+                if (!bEnablePlayerToPlayerDamage_Property)
+                {
+                    Output::send<LogLevel::Error>(STR("[{}] failed to load, property 'bEnablePlayerToPlayerDamage' doesn't exist in OptionWorldSettings anymore.\n"), ModName);
+                    return;
+                }
+
+                auto bEnablePlayerToPlayerDamage = CastField<FBoolProperty>(bEnablePlayerToPlayerDamage_Property);
+                if (!bEnablePlayerToPlayerDamage)
+                {
+                    Output::send<LogLevel::Error>(STR("[{}] failed to load, property 'bEnablePlayerToPlayerDamage' is not a bool anymore.\n"), ModName);
+                    return;
+                }
+
                 bEnablePlayerToPlayerDamage->SetPropertyValueInContainer(OptionWorldSettings, true);
                 OptionSubsystem->SetOptionWorldSettings(OptionWorldSettings);
                 OptionSubsystem->ApplyWorldSettings();
+                Output::send<LogLevel::Verbose>(STR("[YAPP] Enabling PvP Damage to Buildings and Players.\n"));
             }
             else
             {
-                Output::send<LogLevel::Verbose>(STR("[YetAnotherPvPFix] Disabling PvP Damage to Buildings.\n"));
                 EnablePvPDamageToBuildings = false;
+                Output::send<LogLevel::Verbose>(STR("[YAPP] Disabling PvP Damage to Buildings and Players.\n"));
             }
         });
 
