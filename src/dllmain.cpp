@@ -59,7 +59,7 @@ void BeginScan()
             [](const SignatureContainer& self) {
                 if (!self.get_did_succeed())
                 {
-                    Output::send<LogLevel::Error>(STR("Failed to find signature for test\n"));
+                    Output::send<LogLevel::Error>(STR("Failed to find signature for UPalUtility::IsPvP\n"));
                 }
             }
         };
@@ -80,7 +80,7 @@ void BeginScan()
             [](const SignatureContainer& self) {
                 if (!self.get_did_succeed())
                 {
-                    Output::send<LogLevel::Error>(STR("Failed to find signature for Unk\n"));
+                    Output::send<LogLevel::Error>(STR("Failed to find signature for Building Damage Function\n"));
                 }
             }
         };
