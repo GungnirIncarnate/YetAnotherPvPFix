@@ -5,11 +5,13 @@
 #include <safetyhook.hpp>
 #include <Unreal/AActor.hpp>
 #include <Unreal/UClass.hpp>
+#include <Unreal/UEnum.hpp>
 #include <Unreal/UFunction.hpp>
 #include <Unreal/UScriptStruct.hpp>
 #include <Unreal/UObjectGlobals.hpp>
 #include <Unreal/GameplayStatics.hpp>
 #include <Unreal/Property/FBoolProperty.hpp>
+#include <Unreal/Property/FEnumProperty.hpp>
 #include <Unreal/Property/NumericPropertyTypes.hpp>
 
 #include <Signatures.hpp>
@@ -30,21 +32,25 @@ using namespace Palworld;
 std::vector<SignatureContainer> SigContainer;
 SinglePassScanner::SignatureContainerMap SigContainerMap;
 
-UClass* CLASS_MapObject = nullptr;
-
 bool EnablePvPDamageToBuildings = false;
+
+typedef bool(__thiscall* TYPE_PalUtility_IsPvP)(UObject*);
+static inline TYPE_PalUtility_IsPvP PalUtility_IsPvP_Internal;
+
+// Genuinely no idea what this is, but it's responsible for checking if damage should be done to buildings or not
+static inline void* SomeBuildingDamageRelatedFunctionPtr;
 
 // Signature stuff, expect them to break with updates
 void BeginScan()
 {
-    SignatureContainer MapObjectDamageReactionComponent_CanProcessDamage_Signature = [=]() -> SignatureContainer {
+    SignatureContainer PalUtility_IsPvP_Signature = [=]() -> SignatureContainer {
         return {
-            {{ "48 89 5C 24 18 48 89 6C 24 20 56 57 41 56 48 83 EC 40 48 8B 79 F0"}},
+            {{ "48 83 EC 28 E8 ?? ?? ?? ?? 0F B6 80 B5 00 00 00 48 83 C4 28 C3"}},
             [=](SignatureContainer& self) {
                 void* FunctionPointer = static_cast<void*>(self.get_match_address());
 
-                UPalMapObjectDamageReactionComponent::CanProcessDamage_Internal =
-                    reinterpret_cast<UPalMapObjectDamageReactionComponent::TYPE_CanProcessDamage>(FunctionPointer);
+                PalUtility_IsPvP_Internal =
+                    reinterpret_cast<TYPE_PalUtility_IsPvP>(FunctionPointer);
 
                 self.get_did_succeed() = true;
 
@@ -53,32 +59,52 @@ void BeginScan()
             [](const SignatureContainer& self) {
                 if (!self.get_did_succeed())
                 {
-                    Output::send<LogLevel::Error>(STR("Failed to find signature for UPalMapObjectDamageReactionComponent::CanProcessDamage\n"));
+                    Output::send<LogLevel::Error>(STR("Failed to find signature for test\n"));
                 }
             }
         };
     }();
 
-    SigContainer.emplace_back(MapObjectDamageReactionComponent_CanProcessDamage_Signature);
+    SignatureContainer Unk_Signature = [=]() -> SignatureContainer {
+        return {
+            {{ "48 89 5C 24 18 55 56 57 41 56 41 57 48 81 EC 40 01 00 00 48 8B F9 49 8B E8 48 83 C1 D8"}},
+            [=](SignatureContainer& self) {
+                void* FunctionPointer = static_cast<void*>(self.get_match_address());
+
+                SomeBuildingDamageRelatedFunctionPtr = FunctionPointer;
+
+                self.get_did_succeed() = true;
+
+                return true;
+            },
+            [](const SignatureContainer& self) {
+                if (!self.get_did_succeed())
+                {
+                    Output::send<LogLevel::Error>(STR("Failed to find signature for Unk\n"));
+                }
+            }
+        };
+    }();
+
+    SigContainer.emplace_back(PalUtility_IsPvP_Signature);
+    SigContainer.emplace_back(Unk_Signature);
     SigContainerMap.emplace(ScanTarget::MainExe, SigContainer);
     SinglePassScanner::start_scan(SigContainerMap);
 }
 
-SafetyHookInline MapObject_CanProcessDamage_Hook{};
-bool __stdcall MapObjectDamageReactionComponent_CanProcessDamage(UPalMapObjectDamageReactionComponent* This, uint8_t* DamageInfo)
+SafetyHookInline PalUtility_IsPvP_Hook{};
+bool __stdcall PalUtility_IsPvP(UObject* WorldContextObject)
 {
-    auto MapObject = *(AActor**)(This + -0x10);
-    auto MapObjectClass = MapObject->GetClassPrivate();
-    if (MapObjectClass)
+    auto returnAddress = (uintptr_t)_ReturnAddress();
+    if (returnAddress >= reinterpret_cast<uintptr_t>(SomeBuildingDamageRelatedFunctionPtr)
+        && returnAddress < reinterpret_cast<uintptr_t>(SomeBuildingDamageRelatedFunctionPtr) + 0x4E9)
     {
-        auto SuperClass = MapObject->GetClassPrivate()->GetSuperClass();
-        if (SuperClass == CLASS_MapObject)
-        {
-            return MapObject_CanProcessDamage_Hook.call<bool>(This, DamageInfo);
-        }
+        // Make our mystery building damage function read our mod's config setting instead
+        return EnablePvPDamageToBuildings;
     }
 
-    return EnablePvPDamageToBuildings;
+    // Otherwise just read the IsPvP value normally from WorldSettings
+    return PalUtility_IsPvP_Hook.call<bool>(WorldContextObject);
 }
 
 class YetAnotherPvPFix : public RC::CppUserModBase
@@ -87,8 +113,8 @@ public:
     YetAnotherPvPFix() : CppUserModBase()
     {
         ModName = STR("YetAnotherPvPFix");
-        ModVersion = STR("1.0.0");
-        ModDescription = STR("Fixes PvP damage not working for both players and buildings after Crossplay patch.");
+        ModVersion = STR("1.1.0");
+        ModDescription = STR("Fixes PvP damage not working for both players and buildings and also some other bugs after Crossplay patch.");
         ModAuthors = STR("Okaetsu");
 
         Output::send<LogLevel::Verbose>(STR("{} v{} by {} loaded.\n"), ModName, ModVersion, ModAuthors);
@@ -105,8 +131,6 @@ public:
     auto on_unreal_init() -> void override
     {
         Output::send<LogLevel::Verbose>(STR("[{}] loaded successfully!\n"), ModName);
-
-        CLASS_MapObject = UObjectGlobals::StaticFindObject<UClass*>(nullptr, nullptr, TEXT("/Script/Pal.PalMapObject"));
 
         auto& Settings = PVP::Config::Settings::get();
         Settings.deserialize();
@@ -138,7 +162,7 @@ public:
                 return;
             }
 
-            void* OptionWorldSettings = OptionWorldSettingsProperty->ContainerPtrToValuePtr<void>(OptionSubsystem);
+            auto OptionWorldSettings = OptionWorldSettingsProperty->ContainerPtrToValuePtr<void>(OptionSubsystem);
             if (!OptionWorldSettings)
             {
                 Output::send<LogLevel::Error>(STR("[{}] failed to load, could not get internal data for property 'OptionWorldSettings'.\n"), ModName);
@@ -147,8 +171,6 @@ public:
 
             if (Settings.PVP.EnablePlayerToPlayerDamage)
             {
-                EnablePvPDamageToBuildings = true;
-
                 auto bEnablePlayerToPlayerDamage_Property = OptionWorldSettingsStruct->GetPropertyByName(STR("bEnablePlayerToPlayerDamage"));
                 if (!bEnablePlayerToPlayerDamage_Property)
                 {
@@ -166,19 +188,28 @@ public:
                 bEnablePlayerToPlayerDamage->SetPropertyValueInContainer(OptionWorldSettings, true);
                 OptionSubsystem->SetOptionWorldSettings(OptionWorldSettings);
                 OptionSubsystem->ApplyWorldSettings();
-                Output::send<LogLevel::Verbose>(STR("[YAPP] Enabling PvP Damage to Buildings and Players.\n"));
+                Output::send<LogLevel::Verbose>(STR("[YAPP] Enabling PvP Damage to Players.\n"));
             }
             else
             {
-                EnablePvPDamageToBuildings = false;
-                Output::send<LogLevel::Verbose>(STR("[YAPP] Disabling PvP Damage to Buildings and Players.\n"));
+                Output::send<LogLevel::Verbose>(STR("[YAPP] Disabling PvP Damage to Players.\n"));
+            }
+
+            EnablePvPDamageToBuildings = Settings.PVP.EnableBuildingPvPDamage;
+            if (EnablePvPDamageToBuildings)
+            {
+                Output::send<LogLevel::Verbose>(STR("[YAPP] Enabling PvP Damage to Buildings.\n"));
+            }
+            else
+            {
+                Output::send<LogLevel::Verbose>(STR("[YAPP] Disabling PvP Damage to Buildings.\n"));
             }
         });
 
         BeginScan();
 
-        MapObject_CanProcessDamage_Hook = safetyhook::create_inline(reinterpret_cast<void*>(UPalMapObjectDamageReactionComponent::CanProcessDamage_Internal),
-            reinterpret_cast<void*>(MapObjectDamageReactionComponent_CanProcessDamage));
+        PalUtility_IsPvP_Hook = safetyhook::create_inline(reinterpret_cast<void*>(PalUtility_IsPvP_Internal),
+            reinterpret_cast<void*>(PalUtility_IsPvP));
     }
 };
 

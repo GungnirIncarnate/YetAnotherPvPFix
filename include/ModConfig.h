@@ -14,6 +14,7 @@ namespace PVP::Config {
         struct SectionPVP
         {
             bool EnablePlayerToPlayerDamage;
+            bool EnableBuildingPvPDamage;
         } PVP;
     public:
         static auto get() -> Settings&

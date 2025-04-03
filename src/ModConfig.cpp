@@ -36,6 +36,7 @@ namespace PVP::Config
         try
         {
             PVP.EnablePlayerToPlayerDamage = parser.get_bool(section_pvp, L"EnablePlayerToPlayerDamage");
+            PVP.EnableBuildingPvPDamage = parser.get_bool(section_pvp, L"EnableBuildingPvPDamage");
         }
         catch (std::exception& e)
         {
