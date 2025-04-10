@@ -67,7 +67,7 @@ void BeginScan()
 
     SignatureContainer Unk_Signature = [=]() -> SignatureContainer {
         return {
-            {{ "48 89 5C 24 18 55 56 57 41 56 41 57 48 81 EC 40 01 00 00 48 8B F9 49 8B E8 48 83 C1 D8"}},
+            {{ "48 89 5C 24 ?? 55 56 57 41 56 41 57 48 81 EC 40 01 00 00 48 8D 71"}},
             [=](SignatureContainer& self) {
                 void* FunctionPointer = static_cast<void*>(self.get_match_address());
 
