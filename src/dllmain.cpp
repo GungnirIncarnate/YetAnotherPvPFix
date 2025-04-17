@@ -67,7 +67,7 @@ void BeginScan()
 
     SignatureContainer Unk_Signature = [=]() -> SignatureContainer {
         return {
-            {{ "48 89 5C 24 ?? 55 56 57 41 56 41 57 48 81 EC 40 01 00 00 48 8D 71"}},
+            {{ "48 89 5C 24 18 55 56 57 41 56 41 57 48 81 EC 30 01 00 00 48 8B F9 49 8B E8 48 83 C1 D8 48 8B F2 E8"}},
             [=](SignatureContainer& self) {
                 void* FunctionPointer = static_cast<void*>(self.get_match_address());
 
@@ -113,7 +113,7 @@ public:
     YetAnotherPvPFix() : CppUserModBase()
     {
         ModName = STR("YetAnotherPvPFix");
-        ModVersion = STR("1.1.0");
+        ModVersion = STR("1.2.0");
         ModDescription = STR("Fixes PvP damage not working for both players and buildings and also some other bugs after Crossplay patch.");
         ModAuthors = STR("Okaetsu");
 
