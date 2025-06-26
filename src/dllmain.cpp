@@ -38,7 +38,7 @@ typedef bool(__thiscall* TYPE_PalUtility_IsPvP)(UObject*);
 static inline TYPE_PalUtility_IsPvP PalUtility_IsPvP_Internal;
 
 // Genuinely no idea what this is, but it's responsible for checking if damage should be done to buildings or not
-static inline void* SomeBuildingDamageRelatedFunctionPtr;
+static inline void* DmgReturnFunctionPtr;
 
 // Signature stuff, expect them to break with updates
 void BeginScan()
@@ -65,13 +65,13 @@ void BeginScan()
         };
     }();
 
-    SignatureContainer Unk_Signature = [=]() -> SignatureContainer {
+    SignatureContainer Dmg_Return_Signature = [=]() -> SignatureContainer {
         return {
-            {{ "48 89 5C 24 18 55 56 57 41 56 41 57 48 81 EC 30 01 00 00 48 8B F9 49 8B E8 48 83 C1 D8 48 8B F2 E8"}},
+            {{ "84 C0 0F 84 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? 48 8B CE 4C 8B B0 E0"}},
             [=](SignatureContainer& self) {
                 void* FunctionPointer = static_cast<void*>(self.get_match_address());
 
-                SomeBuildingDamageRelatedFunctionPtr = FunctionPointer;
+                DmgReturnFunctionPtr = FunctionPointer;
 
                 self.get_did_succeed() = true;
 
@@ -80,14 +80,14 @@ void BeginScan()
             [](const SignatureContainer& self) {
                 if (!self.get_did_succeed())
                 {
-                    Output::send<LogLevel::Error>(STR("Failed to find signature for Building Damage Function\n"));
+                    Output::send<LogLevel::Error>(STR("Failed to find signature for Building Damage Return Function. Structure damage won't function!\n"));
                 }
             }
         };
     }();
 
     SigContainer.emplace_back(PalUtility_IsPvP_Signature);
-    SigContainer.emplace_back(Unk_Signature);
+    SigContainer.emplace_back(Dmg_Return_Signature);
     SigContainerMap.emplace(ScanTarget::MainExe, SigContainer);
     SinglePassScanner::start_scan(SigContainerMap);
 }
@@ -95,9 +95,7 @@ void BeginScan()
 SafetyHookInline PalUtility_IsPvP_Hook{};
 bool __stdcall PalUtility_IsPvP(UObject* WorldContextObject)
 {
-    auto returnAddress = (uintptr_t)_ReturnAddress();
-    if (returnAddress >= reinterpret_cast<uintptr_t>(SomeBuildingDamageRelatedFunctionPtr)
-        && returnAddress < reinterpret_cast<uintptr_t>(SomeBuildingDamageRelatedFunctionPtr) + 0x4E9)
+    if (_ReturnAddress() == DmgReturnFunctionPtr)
     {
         // Make our mystery building damage function read our mod's config setting instead
         return EnablePvPDamageToBuildings;
