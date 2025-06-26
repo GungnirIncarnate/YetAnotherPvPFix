@@ -111,7 +111,7 @@ public:
     YetAnotherPvPFix() : CppUserModBase()
     {
         ModName = STR("YetAnotherPvPFix");
-        ModVersion = STR("1.2.0");
+        ModVersion = STR("1.2.1");
         ModDescription = STR("Fixes PvP damage not working for both players and buildings and also some other bugs after Crossplay patch.");
         ModAuthors = STR("Okaetsu");
 
