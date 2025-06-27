@@ -67,7 +67,7 @@ void BeginScan()
 
     SignatureContainer Dmg_Return_Signature = [=]() -> SignatureContainer {
         return {
-            {{ "84 C0 0F 84 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? 48 8B CE 4C 8B B0 E0"}},
+            {{ "84 C0 0F 84 ?? ?? ?? ?? 48 8B CE 4C 89 A4 24 C0 01 00 00 E8 ?? ?? ?? ?? 48 8B CE"}},
             [=](SignatureContainer& self) {
                 void* FunctionPointer = static_cast<void*>(self.get_match_address());
 
@@ -111,7 +111,7 @@ public:
     YetAnotherPvPFix() : CppUserModBase()
     {
         ModName = STR("YetAnotherPvPFix");
-        ModVersion = STR("1.2.1");
+        ModVersion = STR("1.2.2");
         ModDescription = STR("Fixes PvP damage not working for both players and buildings and also some other bugs after Crossplay patch.");
         ModAuthors = STR("Okaetsu");
 
