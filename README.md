@@ -6,6 +6,20 @@ Does not rely on `bIsPvP` in PalWorldSettings.ini which breaks a lot of function
 
 # Installation
 
-Installation is pretty straightforward, you'll need UE4SS and the mod itself goes into the Mods folder in either Win64/Mods or Win64/ue4ss/Mods depending on if you're on the most recent experimental version of UE4SS or not.
+Installation is pretty straightforward, you'll need this version of [UE4SS](https://github.com/Okaetsu/RE-UE4SS/releases/tag/experimental-palworld) and the mod itself goes into the Mods folder in Win64/ue4ss/Mods
 
-Note that this mod is intended for Dedicated Servers only and may not work in Co-Op (Invite Only sessions).
+Once installed, your folder structure should look like the diagram below:
+
+```
+.
+└── Win64/
+    └── ue4ss/
+        └── Mods/
+            └── YetAnotherPvPFix/
+                ├── dlls/
+                │   └── main.dll
+                ├── enabled.txt
+                └── PVP-settings.ini
+```
+
+Note that this mod is intended for Windows Dedicated Servers only and may not work in Co-Op (Invite Only sessions).
