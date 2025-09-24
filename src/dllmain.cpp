@@ -67,7 +67,7 @@ void BeginScan()
 
     SignatureContainer Dmg_Return_Signature = [=]() -> SignatureContainer {
         return {
-            {{ "84 C0 0F 84 ?? ?? ?? ?? 48 8D 4F D8 E8 ?? ?? ?? ?? 48 8D 4F D8"}},
+            {{ "84 C0 0F 84 ?? ?? ?? ?? 48 8B CE 4C 89 A4 24 ?? ?? ?? ?? E8 ?? ?? ?? ??"}},
             [=](SignatureContainer& self) {
                 void* FunctionPointer = static_cast<void*>(self.get_match_address());
 
