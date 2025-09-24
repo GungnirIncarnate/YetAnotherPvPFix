@@ -23,3 +23,6 @@ Once installed, your folder structure should look like the diagram below:
 ```
 
 Note that this mod is intended for Windows Dedicated Servers only and may not work in Co-Op (Invite Only sessions).
+
+## Credit
+All credit for this mod goes to Okaetsu for the original mod, I have simply updated the signitures so it works on the latest version of palworld. Also a shoutout to Snorkles from the Palworld modding discord who helped me test it and for providing me with the signitures for the update.
