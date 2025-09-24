@@ -3,7 +3,7 @@ package("safetyhook")
 
     add_deps("zydis", "zycore", "cmake")
 
-    add_versions("v0.4.1", "629558c64009a7291ba6ed5cfb49187086a27a47")
+    add_versions("v0.6.5", "8a975dee560c424329dcb0e151f3649fa4b19146")
 
     on_install(function (package)
         local configs = {}
